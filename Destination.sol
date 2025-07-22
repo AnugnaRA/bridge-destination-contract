@@ -26,7 +26,6 @@ contract Destination is AccessControl {
 	function createToken(address underlying, string memory name, string memory symbol) external onlyRole(CREATOR_ROLE) returns (address) {
     require(wrapped_tokens[underlying] == address(0), "Token already created");
     
-    // The Destination contract must be the admin, not msg.sender
     BridgeToken token = new BridgeToken(underlying, name, symbol, address(this));
     
     wrapped_tokens[underlying] = address(token);
