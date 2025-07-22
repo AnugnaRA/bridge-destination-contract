@@ -1,3 +1,4 @@
+
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
@@ -22,30 +23,39 @@ contract Destination is AccessControl {
         _grantRole(WARDEN_ROLE, admin);
     }
 
+	function createToken(address underlying, string memory name, string memory symbol) external onlyRole(CREATOR_ROLE) returns (address) {
+    require(wrapped_tokens[underlying] == address(0), "Token already created");
+    
+    // The Destination contract must be the admin, not msg.sender
+    BridgeToken token = new BridgeToken(underlying, name, symbol, address(this));
+    
+    wrapped_tokens[underlying] = address(token);
+    underlying_tokens[address(token)] = underlying;
+    
+    emit Creation(underlying, address(token));
+    return address(token);
+	}
+	
 	function wrap(address underlying, address recipient, uint256 amount) external onlyRole(WARDEN_ROLE) {
     address tokenAddress = wrapped_tokens[underlying];
     require(tokenAddress != address(0), "Token not registered");
-
+    
     BridgeToken token = BridgeToken(tokenAddress);
     token.mint(recipient, amount);
+    
     emit Wrap(underlying, tokenAddress, recipient, amount);
 	}
 	
 	function unwrap(address tokenAddress, address recipient, uint256 amount) external {
     BridgeToken token = BridgeToken(tokenAddress);
-
+    
+    // Get the underlying address from the token
+    address underlying = token.underlying();
+    
+    // This will burn the tokens from msg.sender
     token.burnFrom(msg.sender, amount);
-    emit Unwrap(token.underlying(), tokenAddress, msg.sender, recipient, amount);
-	}
-	
-	function createToken(address underlying, string memory name, string memory symbol) external onlyRole(CREATOR_ROLE) returns (address) {
-    require(wrapped_tokens[underlying] == address(0), "Token already created");
-
-    BridgeToken token = new BridgeToken(underlying, name, symbol, msg.sender);
-    wrapped_tokens[underlying] = address(token);
-    underlying_tokens[address(token)] = underlying;
-
-    emit Creation(underlying, address(token));
-    return address(token);
+    
+    // Emit the unwrap event with all required parameters
+    emit Unwrap(underlying, tokenAddress, msg.sender, recipient, amount);
 	}
 }
